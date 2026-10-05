@@ -1,0 +1,12 @@
+node_modules/
+dist/
+server/dist/
+.vite/
+.env
+.env.*
+!.env.example
+.env.local
+server/mosquitto/passwords
+server/mosquitto/*.log
+server/mqtt-publishers.local.json
+.DS_Store

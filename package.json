@@ -1,0 +1,16 @@
+{
+  "name": "valeria",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npm --prefix client run dev -- --host 0.0.0.0",
+    "build": "npm --prefix client run build",
+    "preview": "npm --prefix client run preview -- --host 0.0.0.0",
+    "server:dev": "npm --prefix server run dev",
+    "server:test": "npm --prefix server test",
+    "simulator:dev": "npm --prefix server run simulator:dev",
+    "simulator:start": "npm --prefix server run simulator",
+    "server:build": "npm --prefix server run build",
+    "server:start": "npm --prefix server run start"
+  }
+}

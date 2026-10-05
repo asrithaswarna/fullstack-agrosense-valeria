@@ -1,0 +1,9 @@
+user valeria_backend
+topic read valeria/greenhouses/+/readings
+topic read valeria/greenhouses/+/sensors/+/reading
+topic write valeria/greenhouses/+/readings
+topic write valeria/greenhouses/+/sensors/+/reading
+
+pattern write valeria/greenhouses/%u/readings
+pattern write valeria/greenhouses/%u/sensors/+/reading
+pattern read valeria/greenhouses/%u/#

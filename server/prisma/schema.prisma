@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum GreenhouseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SensorStatus {
+  ONLINE
+  OFFLINE
+  WARNING
+  READY
+}
+
+enum SensorMeasurementType {
+  TEMPERATURE
+  HUMIDITY
+  SOIL_MOISTURE
+  LIGHT_INTENSITY
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum ZoneState {
+  HEALTHY
+  OPTIMAL
+  MONITOR
+}
+
+enum IrrigationState {
+  IDLE
+  WATERING
+  SCHEDULED
+}
+
+enum IrrigationMode {
+  AUTOMATIC
+  MANUAL
+}
+
+model User {
+  id           String      @id @default(uuid()) @db.Uuid
+  name         String      @db.VarChar(120)
+  email        String      @unique @db.VarChar(254)
+  passwordHash String      @db.VarChar(255)
+  role         UserRole    @default(USER)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  greenhouse   Greenhouse?
+
+  @@index([createdAt])
+}
+
+model Greenhouse {
+  id                        String           @id @default(uuid()) @db.Uuid
+  ownerId                   String           @unique @db.Uuid
+  name                      String           @db.VarChar(120)
+  location                  String           @db.VarChar(160)
+  area                      Float
+  timezone                  String           @db.VarChar(80)
+  description               String           @default("") @db.VarChar(500)
+  status                    GreenhouseStatus @default(ACTIVE)
+  irrigationEnabled         Boolean          @default(true)
+  irrigationActive          Boolean          @default(false)
+  currentZone               String?
+  irrigationStartedAt       DateTime?
+  irrigationDurationMinutes Int              @default(8)
+  irrigationMode            IrrigationMode   @default(AUTOMATIC)
+  irrigationLastCycle       String           @default("8:30 AM") @db.VarChar(40)
+  temperatureMin            Float            @default(18)
+  temperatureMax            Float            @default(30)
+  humidityMin               Float            @default(50)
+  humidityMax               Float            @default(80)
+  soilMin                   Float            @default(60)
+  soilMax                   Float            @default(85)
+  lightMin                  Float            @default(300)
+  lightMax                  Float            @default(1200)
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  owner                     User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sensors                   Sensor[]
+  soilZones                 SoilZone[]
+  readings                  SensorReading[]
+  measurements              SensorMeasurement[]
+  alerts                    Alert[]
+
+  @@index([status])
+}
+
+model SoilZone {
+  id              String          @id @default(uuid()) @db.Uuid
+  greenhouseId    String          @db.Uuid
+  name            String          @db.VarChar(80)
+  moisture        Float           @default(0)
+  state           ZoneState       @default(HEALTHY)
+  irrigationState IrrigationState @default(IDLE)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  greenhouse      Greenhouse      @relation(fields: [greenhouseId], references: [id], onDelete: Cascade)
+  sensors         Sensor[]
+
+  @@unique([greenhouseId, name])
+  @@index([greenhouseId])
+}
+
+model Sensor {
+  id           String          @id @default(uuid()) @db.Uuid
+  greenhouseId String          @db.Uuid
+  soilZoneId   String?         @db.Uuid
+  name         String          @db.VarChar(120)
+  type         String          @db.VarChar(120)
+  zoneLabel    String          @db.VarChar(120)
+  unit         String          @db.VarChar(40)
+  status       SensorStatus    @default(ONLINE)
+  lastReading  String          @default("No reading yet") @db.VarChar(120)
+  lastSeen     DateTime?
+  batteryLevel Int?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  greenhouse   Greenhouse      @relation(fields: [greenhouseId], references: [id], onDelete: Cascade)
+  soilZone     SoilZone?       @relation(fields: [soilZoneId], references: [id], onDelete: SetNull)
+  readings     SensorReading[]
+  measurements SensorMeasurement[]
+  alerts       Alert[]
+
+  @@unique([greenhouseId, name, zoneLabel])
+  @@index([greenhouseId])
+  @@index([soilZoneId])
+}
+
+model SensorReading {
+  id             String     @id @default(uuid()) @db.Uuid
+  greenhouseId   String     @db.Uuid
+  sensorId       String     @db.Uuid
+  timestamp      DateTime   @default(now())
+  temperature    Float
+  humidity       Float
+  soilMoisture   Float
+  lightIntensity Float
+  greenhouse     Greenhouse @relation(fields: [greenhouseId], references: [id], onDelete: Cascade)
+  sensor         Sensor     @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@unique([sensorId, timestamp])
+  @@index([greenhouseId, timestamp])
+  @@index([sensorId, timestamp])
+}
+
+model SensorMeasurement {
+  id           String                @id @default(uuid()) @db.Uuid
+  greenhouseId String                @db.Uuid
+  sensorId     String                @db.Uuid
+  metric       SensorMeasurementType
+  value        Float
+  recordedAt   DateTime              @default(now())
+  greenhouse   Greenhouse            @relation(fields: [greenhouseId], references: [id], onDelete: Cascade)
+  sensor       Sensor                @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@unique([sensorId, metric, recordedAt])
+  @@index([greenhouseId, recordedAt])
+  @@index([sensorId, metric, recordedAt])
+}
+
+model Alert {
+  id             String        @id @default(uuid()) @db.Uuid
+  greenhouseId   String        @db.Uuid
+  sensorId       String?       @db.Uuid
+  type           String        @db.VarChar(100)
+  title          String        @db.VarChar(180)
+  message        String        @db.VarChar(500)
+  severity       AlertSeverity
+  status         AlertStatus   @default(ACTIVE)
+  acknowledged   Boolean       @default(false)
+  acknowledgedAt DateTime?
+  source         String        @db.VarChar(160)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  resolvedAt     DateTime?
+  activeConditionKey String?   @unique @db.VarChar(250)
+  greenhouse     Greenhouse    @relation(fields: [greenhouseId], references: [id], onDelete: Cascade)
+  sensor         Sensor?       @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+
+  @@index([greenhouseId, status, createdAt])
+  @@index([sensorId])
+}
